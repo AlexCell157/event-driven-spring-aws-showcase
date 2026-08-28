@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: ecommerce-backend-deployment
+    labels:
+        app: ecommerce-backend
+spec:
+    # US-Standard: Mindestens 2 Instanzen parallel laufen lassen (Ausfallsicherheit)
+    replicas: 2
+    selector:
+        matchLabels:
+            app: ecommerce-backend
+    template:
+        metadata:
+            labels:
+                app: ecommerce-backend
+        spec:
+            containers:
+                - name: ecommerce-backend-container
+                    # Das Docker-Image deiner Spring Boot App (z. B. auf Docker Hub)
+                  image: alexcell157/event-driven-spring-aws-showcase:latest
+                  ports:
+                      - containerPort: 8081
+                    # Umgebungsvariablen, um die App im Cluster zu steuern
+                  env:
+                      - name: SPRING_PROFILES_ACTIVE
+                        value: "prod" # In K8s läuft standardmäßig das Produktions-Profil
+                      - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+                        value: "kafka-service:9092"
+                    # Ressourcen-Limits verhindern, dass ein Pod den ganzen Server kille
+                  resources:
+                      limits:
+                          cpu: "500m"
+                          memory: "512Mi"
+                      requests:
+                          cpu: "250m"
+                          memory: "256Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: ecommerce-backend-service
+spec:
+    selector:
+        app: ecommerce-backend
+    ports:
+        - protocol: TCP
+          port: 8081      # Der Port, unter dem der Service im Cluster erreichbar ist
+          targetPort: 8081 # Der Port im Container
+    type: LoadBalancer  # Macht die API für externe curl-Anfragen im Internet zugänglich
