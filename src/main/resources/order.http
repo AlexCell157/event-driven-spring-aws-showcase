@@ -17,4 +17,25 @@ Content-Type: application/json
     "price": 999.99
 }
 
+
+###
+# curl -X POST http://localhost:8081/api/v1/orders
+#-H "Content-Type: application/json"
+#-d '{
+#  "customerId": "cust-99",
+#  "productCategory": "Fashion",
+#  "quantity": 2,
+#  "price": 149.50
+#}'
+POST http://localhost:8081/api/v1/orders
+Content-Type: application/json
+
+{
+    "customerId": "cust-99",
+    "productCategory": "Fashion",
+    "quantity": 2,
+    "price": 149.50
+}
+
+###
 ###

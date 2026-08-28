@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -23,7 +25,7 @@ public class OrderConsumer {
 
     private final S3Client s3Client;
     private final DynamoDbClient dynamoDbClient;
-    private final JsonMapper jsonMapper; // Nutzt nativ Jackson 3
+    private final JsonMapper jsonMapper;
 
     @Value("${custom.aws.s3.bucket-name}")
     private String bucketName;
@@ -31,17 +33,24 @@ public class OrderConsumer {
     @Value("${custom.aws.dynamodb.analytics-table}")
     private String analyticsTable;
 
+    // Liest den Namen der zweiten Tabelle "ProcessedOrders" aus den Properties
+    @Value("${custom.aws.dynamodb.processed-table}")
+    private String processedTable;
+
     @KafkaListener(topics = "${custom.kafka.topic-name}", groupId = "${spring.kafka.consumer.group-id}")
     public void consumeOrder(String message) {
         try {
-            // 1. JSON in Objekt verwandeln
             OrderEvent event = jsonMapper.readValue(message, OrderEvent.class);
-            log.info("Consuming OrderEvent. OrderId: {}, Category: {}", event.getOrderId(), event.getProductCategory());
+            log.info("Received OrderEvent. Testing idempotency for OrderId: {}", event.getOrderId());
 
-            // 2. In S3 archivieren
+            // 1. SCHUTZSCHILD: Versuche die OrderId in ProcessedOrders zu loggen
+            if (!tryReserveOrderId(event.getOrderId())) {
+                log.warn("Duplicate message detected! OrderId {} has already been processed. Skipping.", event.getOrderId());
+                return; // Nachricht wird ohne weitere Aktion verworfen
+            }
+
+            // 2. Eigentliche Verarbeitung (wird nur ausgeführt, wenn es kein Duplikat war)
             archiveToS3(event, message);
-
-            // 3. Live-Metriken in DynamoDB updaten
             updateAnalyticsDashboard(event);
 
         } catch (Exception e) {
@@ -49,9 +58,27 @@ public class OrderConsumer {
         }
     }
 
+    private boolean tryReserveOrderId(String orderId) {
+        try {
+            // PutItemRequest mit einer Bedingung (ConditionExpression)
+            PutItemRequest putRequest = PutItemRequest.builder()
+                    .tableName(processedTable)
+                    .item(Map.of("OrderId", AttributeValue.builder().s(orderId).build()))
+                    // "Nur einfügen, wenn die OrderId noch NICHT existiert"
+                    .conditionExpression("attribute_not_exists(OrderId)")
+                    .build();
+
+            dynamoDbClient.putItem(putRequest);
+            log.info("OrderId {} successfully locked in DynamoDB.", orderId);
+            return true;
+        } catch (ConditionalCheckFailedException e) {
+            // Diese Exception fliegt automatisch, wenn die OrderId schon existiert
+            return false;
+        }
+    }
+
     private void archiveToS3(OrderEvent event, String jsonPayload) {
         String s3Key = "orders/" + event.getProductCategory() + "/" + event.getOrderId() + ".json";
-
         s3Client.putObject(
                 PutObjectRequest.builder().bucket(bucketName).key(s3Key).build(),
                 RequestBody.fromString(jsonPayload)
