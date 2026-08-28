@@ -9,10 +9,10 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderEvent {
-    private String orderId;       // UUID der Bestellung (wichtig für die Idempotenz!)
-    private String customerId;    // ID des Kunden
-    private String productCategory;// z.B. "Electronics", "Fashion" (für das Analytics-Dashboard)
-    private int quantity;         // Anzahl der Artikel
-    private BigDecimal price;     // Gesamtpreis
-    private String timestamp;     // Zeitpunkt der Bestellung
+    private String orderId;        // Unique order identifier (crucial for idempotency)
+    private String customerId;     // Customer identifier
+    private String productCategory;// e.g. "Electronics", "Fashion" (used for the analytics dashboard)
+    private int quantity;          // Number of items
+    private BigDecimal price;      // Total price
+    private String timestamp;      // Timestamp of order creation
 }

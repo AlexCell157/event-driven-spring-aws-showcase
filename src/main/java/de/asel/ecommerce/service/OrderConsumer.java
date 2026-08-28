@@ -33,7 +33,7 @@ public class OrderConsumer {
     @Value("${custom.aws.dynamodb.analytics-table}")
     private String analyticsTable;
 
-    // Liest den Namen der zweiten Tabelle "ProcessedOrders" aus den Properties
+    // Reads the name of the second table "ProcessedOrders" from properties
     @Value("${custom.aws.dynamodb.processed-table}")
     private String processedTable;
 
@@ -43,13 +43,13 @@ public class OrderConsumer {
             OrderEvent event = jsonMapper.readValue(message, OrderEvent.class);
             log.info("Received OrderEvent. Testing idempotency for OrderId: {}", event.getOrderId());
 
-            // 1. SCHUTZSCHILD: Versuche die OrderId in ProcessedOrders zu loggen
+            // 1. IDEMPOTENCY GUARD: Attempt to record the OrderId in ProcessedOrders
             if (!tryReserveOrderId(event.getOrderId())) {
                 log.warn("Duplicate message detected! OrderId {} has already been processed. Skipping.", event.getOrderId());
-                return; // Nachricht wird ohne weitere Aktion verworfen
+                return; // Discard duplicate message without further processing
             }
 
-            // 2. Eigentliche Verarbeitung (wird nur ausgeführt, wenn es kein Duplikat war)
+            // 2. Core business processing (executed only if event is not a duplicate)
             archiveToS3(event, message);
             updateAnalyticsDashboard(event);
 
@@ -60,11 +60,11 @@ public class OrderConsumer {
 
     private boolean tryReserveOrderId(String orderId) {
         try {
-            // PutItemRequest mit einer Bedingung (ConditionExpression)
+            // PutItemRequest with a conditional expression (ConditionExpression)
             PutItemRequest putRequest = PutItemRequest.builder()
                     .tableName(processedTable)
                     .item(Map.of("OrderId", AttributeValue.builder().s(orderId).build()))
-                    // "Nur einfügen, wenn die OrderId noch NICHT existiert"
+                    // "Insert only if the OrderId does NOT already exist"
                     .conditionExpression("attribute_not_exists(OrderId)")
                     .build();
 
@@ -72,7 +72,7 @@ public class OrderConsumer {
             log.info("OrderId {} successfully locked in DynamoDB.", orderId);
             return true;
         } catch (ConditionalCheckFailedException e) {
-            // Diese Exception fliegt automatisch, wenn die OrderId schon existiert
+            // Thrown automatically when the OrderId already exists
             return false;
         }
     }

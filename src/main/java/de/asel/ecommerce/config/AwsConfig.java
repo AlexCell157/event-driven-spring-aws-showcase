@@ -32,7 +32,7 @@ public class AwsConfig {
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create("test", "test")))
                 .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(true) // Wichtig für LocalStack S3
+                        .pathStyleAccessEnabled(true) // Required for LocalStack S3
                         .build())
                 .build();
     }

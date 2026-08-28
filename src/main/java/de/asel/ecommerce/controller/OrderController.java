@@ -25,14 +25,14 @@ public class OrderController {
     public ResponseEntity<String> placeOrder(@RequestBody OrderEvent orderRequest) {
         log.info("Received web request to place order for customer: {}", orderRequest.getCustomerId());
 
-        // 1. IDs und Zeitstempel dynamisch im Backend generieren (Sicherheits-Best-Practice)
+        // 1. Dynamically generate ID and timestamp in the backend (Security best practice)
         orderRequest.setOrderId(UUID.randomUUID().toString());
         orderRequest.setTimestamp(Instant.now().toString());
 
-        // 2. Asynchrones Event an Kafka übergeben
+        // 2. Hand off asynchronous event to Kafka
         orderProducer.sendOrderEvent(orderRequest);
 
-        // 3. Dem Client sofort antworten (Non-blocking Architektur)
+        // 3. Respond immediately to the client (Non-blocking architecture)
         return ResponseEntity.ok("Order submitted successfully. Order ID: " + orderRequest.getOrderId());
     }
 }

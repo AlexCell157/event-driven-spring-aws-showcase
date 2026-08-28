@@ -1,13 +1,13 @@
 provider "aws" {
   region = "eu-central-1"
 
-  # Erzwingt die Verwendung von Dummy-Werten, damit STS/IAM nicht abgefragt werden
+  # Force dummy values to avoid querying AWS STS/IAM endpoints in LocalStack
   skip_requesting_account_id  = true
   skip_credentials_validation = true
   skip_metadata_api_check     = true
 }
 
-# (Der Rest deiner Ressourcen bleibt exakt gleich!)
+# Cloud infrastructure resources provisioned in LocalStack
 resource "aws_s3_bucket" "order_archive_bucket" {
   bucket = "ecommerce-order-archive-showcase"
 }

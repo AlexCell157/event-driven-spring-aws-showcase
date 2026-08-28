@@ -1,5 +1,5 @@
 services:
-    # 1. AWS Emulator (LocalStack)
+    # 1. AWS Cloud Emulator (LocalStack)
     localstack:
         container_name: localstack_main
         image: localstack/localstack:latest
@@ -15,7 +15,7 @@ services:
         networks:
             - showcase-network
 
-    # 2. Apache Kafka (Moderner KRaft-Modus)
+    # 2. Apache Kafka (Modern KRaft mode - ZooKeeper-less)
     kafka:
         container_name: kafka_broker
         image: confluentinc/cp-kafka:latest
