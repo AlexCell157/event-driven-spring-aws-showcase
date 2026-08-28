@@ -9,6 +9,7 @@ services:
             - SERVICES=s3,dynamodb
             - AWS_DEFAULT_REGION=eu-central-1
             - DOCKER_HOST=unix:///var/run/docker.sock
+            - LOCALSTACK_AUTH_TOKEN=ls-SArEXokO-2869-XIRO-6749-capaDEGe6baa
         volumes:
             - "/var/run/docker.sock:/var/run/docker.sock"
         networks:

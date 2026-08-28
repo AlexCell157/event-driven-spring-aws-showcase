@@ -1,13 +1,13 @@
 package de.asel.ecommerce.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.asel.ecommerce.dto.OrderEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +32,7 @@ public class OrderProducer {
             // Das sorgt dafür, dass alle Events derselben Bestellung im selben Kafka-Partition-Kanal landen.
             kafkaTemplate.send(topicName, event.getOrderId(), jsonMessage);
 
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed to serialize OrderEvent for OrderId: {}", event.getOrderId(), e);
         }
     }
