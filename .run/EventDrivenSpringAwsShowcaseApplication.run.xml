@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="EventDrivenSpringAwsShowcaseApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <option name="ACTIVE_PROFILES" value="local" />
+    <module name="event-driven-spring-aws-showcase" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="de.asel.ecommerce.EventDrivenSpringAwsShowcaseApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
