@@ -1,7 +1,6 @@
 package de.asel.ecommerce.service;
 
 import de.asel.ecommerce.dto.OrderEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -10,16 +9,22 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class OrderProducer {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    // Reads topic name "orders-v1" from application-local.properties
-    @Value("${custom.kafka.topic-name}")
-    private String topicName;
+    private final String topicName;
+
+    public OrderProducer(
+            KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper objectMapper,
+            @Value("${custom.kafka.topic-name}") String topicName) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.topicName = topicName;
+    }
 
     public void sendOrderEvent(OrderEvent event) {
         try {
