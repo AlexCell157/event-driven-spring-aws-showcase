@@ -87,6 +87,7 @@ This project showcases a non-blocking asynchronous architecture engineered for h
 3. **Idempotent Consumer Pipeline (`OrderConsumer`):**
    - Listens to the `orders-v1` topic as part of consumer group `ecommerce-showcase-group`.
    - **Distributed Deduplication / Locking:** Uses Amazon DynamoDB conditional writes (`attribute_not_exists(OrderId)`) on table `ProcessedOrders`. If the `OrderId` already exists (e.g. on Kafka retries or redeliveries), the duplicate message is safely discarded.
+   - **At-Least-Once Error Handling:** If archiving or analytics processing fails, the consumer releases the previously acquired `ProcessedOrders` lock and rethrows the exception, so Kafka can redeliver the message and reprocess the order instead of silently losing it.
    - **Cold Storage Archive (Amazon S3):** Persists the original raw JSON payload into `ecommerce-order-archive-showcase` under partitioned paths: `orders/{productCategory}/{orderId}.json`.
    - **Real-Time Analytics (Amazon DynamoDB):** Atomically updates aggregated metrics in table `ECommerceAnalyticsDashboard` using DynamoDB's `ADD TotalOrders :inc, TotalRevenue :rev` atomic update expression, eliminating race conditions under concurrent loads without distributed locks.
 
@@ -151,28 +152,40 @@ event-driven-spring-aws-showcase/
     │       ├── application-local.properties# Local profile configuration (LocalStack & Kafka endpoints)
     │       └── order.http                  # Ready-to-run HTTP requests for IntelliJ / REST Client
     └── test/
-        └── java/de/asel/ecommerce/eventdrivenspringawsshowcase/
-            └── EventDrivenSpringAwsShowcaseApplicationTests.java  # Spring Context Smoke Test
+        └── java/de/asel/ecommerce/
+            ├── config/
+            │   └── AwsProfileConfigurationTest.java  # Verifies default AWS clients outside the local profile
+            ├── eventdrivenspringawsshowcase/
+            │   └── EventDrivenSpringAwsShowcaseApplicationTests.java  # Spring Context Smoke Test (local profile)
+            └── service/
+                └── OrderConsumerTest.java  # Error propagation & idempotency lock release
 ```
 
 ---
 
 ## Configuration Reference
 
-Key configuration settings found in `src/main/resources/application-local.properties`:
+Profile-independent defaults live in `src/main/resources/application.properties`. Every value can be overridden per environment via environment variables (e.g. `CUSTOM_AWS_S3_BUCKET_NAME`), as done in the Kubernetes manifest:
 
 | Property | Default Value | Description |
 | :--- | :--- | :--- |
-| `server.port` | `8081` | Web server HTTP port |
-| `spring.cloud.aws.region.static` | `eu-central-1` | AWS Region (Frankfurt) |
-| `spring.cloud.aws.s3.endpoint` | `http://localhost:4566` | LocalStack S3 Endpoint |
-| `spring.cloud.aws.dynamodb.endpoint` | `http://localhost:4566` | LocalStack DynamoDB Endpoint |
 | `custom.aws.s3.bucket-name` | `ecommerce-order-archive-showcase` | S3 bucket for order JSON backups |
 | `custom.aws.dynamodb.analytics-table` | `ECommerceAnalyticsDashboard` | DynamoDB table for aggregated analytics |
 | `custom.aws.dynamodb.processed-table` | `ProcessedOrders` | DynamoDB table for deduplication tokens |
-| `spring.kafka.bootstrap-servers` | `localhost:9092` | Apache Kafka broker address |
-| `spring.kafka.consumer.group-id` | `ecommerce-showcase-group` | Kafka consumer group identifier |
 | `custom.kafka.topic-name` | `orders-v1` | Target Kafka topic for order events |
+| `spring.kafka.consumer.group-id` | `ecommerce-showcase-group` | Kafka consumer group identifier |
+| `spring.cloud.aws.region.static` | `${AWS_REGION:eu-central-1}` | AWS Region (Frankfurt by default) |
+
+The `local` profile (`src/main/resources/application-local.properties`) adds the LocalStack- and developer-machine-specific settings:
+
+| Property | Value | Description |
+| :--- | :--- | :--- |
+| `server.port` | `8081` | Web server HTTP port |
+| `spring.cloud.aws.s3.endpoint` | `http://localhost:4566` | LocalStack S3 Endpoint |
+| `spring.cloud.aws.dynamodb.endpoint` | `http://localhost:4566` | LocalStack DynamoDB Endpoint |
+| `spring.kafka.bootstrap-servers` | `localhost:9092` | Apache Kafka broker address |
+
+Only the `local` profile activates `AwsConfig`, which points the AWS SDK clients at LocalStack with dummy credentials. Outside this profile (e.g. `prod` in Kubernetes), the AWS starters build clients that use the AWS SDK default credential provider chain.
 
 ---
 
@@ -226,11 +239,7 @@ tflocal init
 tflocal apply --auto-approve
 ```
 
-> **Tip (Without `tflocal`):** If you use vanilla Terraform CLI, configure the AWS provider to point to `http://localhost:4566` or run:
-> ```bash
-> terraform init
-> terraform apply -auto-approve
-> ```
+> **Note:** Plain `terraform apply` is not sufficient with the repository's current provider configuration, because it contains no LocalStack endpoint overrides. Either use `tflocal`, which injects them automatically, or add explicit `endpoints { ... }` overrides pointing to `http://localhost:4566` to the AWS provider block. See [Terraform](docs/terraform.md) for details.
 
 ---
 
@@ -346,8 +355,11 @@ The repository provides production-ready Kubernetes manifests located in `kubern
 ### Key Features
 - **High Availability & Redundancy:** Configured with 2 replicas across worker nodes.
 - **Resource Constraints:** Defined CPU/memory requests (`250m` / `256Mi`) and limits (`500m` / `512Mi`).
-- **Production Profile:** Injects `SPRING_PROFILES_ACTIVE=prod` and cluster Kafka connection `SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092`.
+- **Production Profile:** Injects `SPRING_PROFILES_ACTIVE=prod`, cluster Kafka connection `SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092`, and all resource names (bucket, tables, topic, consumer group, region) as environment variables.
+- **AWS Identity:** Ships a dedicated `ecommerce-backend` ServiceAccount; bind it to an IAM role (e.g. via IRSA on EKS) so the AWS SDK default credential chain can authenticate — see [Kubernetes](docs/kubernetes.md).
 - **Load Balancing:** Exposes the backend via a Kubernetes `LoadBalancer` Service on port `8081`.
+
+Requirements and IAM permissions are documented in detail in [docs/kubernetes.md](docs/kubernetes.md).
 
 ### Apply Manifests
 ```bash

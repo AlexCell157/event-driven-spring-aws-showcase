@@ -57,4 +57,8 @@ cd terraform
 tflocal destroy -auto-approve
 ```
 
-Terraform stores state in the `terraform/` directory. Do not edit state files manually; use `tflocal plan`, `apply`, and `destroy` to keep the state aligned with LocalStack.
+## State handling
+
+Terraform stores its state in `terraform/terraform.tfstate` (with an automatic `terraform.tfstate.backup`). Always run the commands from inside the `terraform/` directory so they use this state. Do not edit state files manually; use `tflocal plan`, `apply`, and `destroy` to keep the state aligned with LocalStack.
+
+Because LocalStack loses its resources when the container is recreated, the state can become stale after a restart. In that case, either re-apply (`tflocal apply -auto-approve`) or delete the local state files and initialize again.

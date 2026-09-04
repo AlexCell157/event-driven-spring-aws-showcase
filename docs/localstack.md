@@ -34,6 +34,8 @@ Stop the containers without deleting any Docker-managed data:
 docker compose -f localstack/docker-compose.yml down
 ```
 
+LocalStack Community keeps emulated resources in memory only. After the container is recreated, the S3 bucket and DynamoDB tables are gone and must be provisioned again with [Terraform](terraform.md).
+
 ## Provisioned resources
 
 Terraform creates the following resources inside LocalStack:

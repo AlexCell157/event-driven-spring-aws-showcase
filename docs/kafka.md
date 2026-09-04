@@ -33,6 +33,16 @@ The local profile configures the application as follows:
 
 `OrderProducer` serializes an order to JSON and publishes it using `orderId` as the message key. Events for the same order therefore use the same partition. `OrderConsumer` receives the JSON from `orders-v1`, reserves the `OrderId` in DynamoDB to make processing idempotent, then writes the archive and analytics data.
 
+## Delivery semantics and error handling
+
+The pipeline provides at-least-once delivery with idempotent processing:
+
+1. Before any business processing, the consumer reserves the `OrderId` in the `ProcessedOrders` DynamoDB table with a conditional write. A failed condition marks a duplicate, which is skipped without side effects.
+2. If archiving to S3 or the analytics update fails after the reservation, the consumer deletes the reservation again and rethrows the exception.
+3. The rethrown exception reaches the listener container, whose default error handler retries the delivery a limited number of times before giving up. Because the reservation was released, a redelivered message is processed as a fresh event rather than discarded as a duplicate.
+
+Messages that cannot be deserialized are also rethrown and therefore retried; they are not silently dropped.
+
 ## Inspect the topic
 
 Kafka creates the topic on first use when broker auto-topic creation is enabled. After the application has sent an order, list topics and consume records from the beginning:
