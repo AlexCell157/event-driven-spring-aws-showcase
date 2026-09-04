@@ -13,6 +13,7 @@ The entire cloud infrastructure is emulated locally using **LocalStack Community
 - [Tech Stack & Dependencies](#tech-stack--dependencies)
 - [Project Structure](#project-structure)
 - [Configuration Reference](#configuration-reference)
+- [Component Documentation](#component-documentation)
 - [Quickstart: How to Run Locally](#quickstart-how-to-run-locally)
   - [Prerequisites](#prerequisites)
   - [Step 1: Start Local Infrastructure (Kafka & LocalStack)](#step-1-start-local-infrastructure-kafka--localstack)
@@ -119,6 +120,12 @@ event-driven-spring-aws-showcase/
 ├── localstack/
 │   └── docker-compose.yml                  # LocalStack (S3, DynamoDB) & Kafka (KRaft)
 │
+├── docs/
+│   ├── kafka.md                             # Kafka broker and application integration
+│   ├── kubernetes.md                        # Kubernetes deployment requirements and operation
+│   ├── localstack.md                        # Local AWS emulation and verification
+│   └── terraform.md                         # Local infrastructure provisioning
+│
 ├── terraform/
 │   ├── main.tf                             # S3 bucket & DynamoDB tables definitions
 │   └── terraform.tfstate                   # Local Terraform state tracking
@@ -166,6 +173,17 @@ Key configuration settings found in `src/main/resources/application-local.proper
 | `spring.kafka.bootstrap-servers` | `localhost:9092` | Apache Kafka broker address |
 | `spring.kafka.consumer.group-id` | `ecommerce-showcase-group` | Kafka consumer group identifier |
 | `custom.kafka.topic-name` | `orders-v1` | Target Kafka topic for order events |
+
+---
+
+## Component Documentation
+
+Detailed documentation for the individual infrastructure components is available separately:
+
+- [LocalStack](docs/localstack.md)
+- [Terraform](docs/terraform.md)
+- [Apache Kafka](docs/kafka.md)
+- [Kubernetes](docs/kubernetes.md)
 
 ---
 
