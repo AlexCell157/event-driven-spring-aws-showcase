@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | Deployment | `ecommerce-backend-deployment` | Two replicas with label `app: ecommerce-backend`. |
 | Container | `ecommerce-backend-container` | Image `alexcell157/event-driven-spring-aws-showcase:latest`, port `8081`. |
+| ServiceAccount | `ecommerce-backend` | Identity used by the Pods; bind it to an AWS IAM role when deploying to AWS. |
 | Service | `ecommerce-backend-service` | LoadBalancer on port `8081`, targeting port `8081` in the Pods. |
 
 Each Pod requests `250m` CPU and `256Mi` memory, with limits of `500m` CPU and `512Mi` memory.
@@ -18,10 +19,10 @@ Before applying the manifest, ensure that:
 
 1. The image in the manifest is available to every cluster node, or replace it with an accessible image reference.
 2. A Kafka Service named `kafka-service` exposes a broker on port `9092`, because the Deployment sets `SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092`.
-3. The application receives all configuration values required by `AwsConfig` and `OrderConsumer`: AWS S3 and DynamoDB endpoints, AWS region, S3 bucket name, DynamoDB table names, Kafka topic name, and consumer group ID.
-4. The referenced bucket and tables already exist. For a LocalStack-backed environment, provision them with [Terraform](terraform.md).
+3. The S3 bucket and DynamoDB tables named in the Deployment already exist. For a LocalStack-backed environment, provision them with [Terraform](terraform.md).
+4. When targeting AWS, bind `ecommerce-backend` to an IAM role that permits `s3:PutObject` for the archive bucket plus `dynamodb:PutItem`, `dynamodb:DeleteItem`, and `dynamodb:UpdateItem` for both tables. On EKS, use an IRSA annotation on this ServiceAccount; the AWS SDK then discovers its credentials automatically.
 
-The repository provides only `application.properties` and `application-local.properties`; it does not provide an `application-prod.properties`. Although the manifest activates the `prod` profile, its required custom AWS and Kafka properties are not supplied there. Provide them with a ConfigMap and, where appropriate, a Secret before using this manifest outside the local setup.
+The Deployment supplies all application-specific resource names, region, topic, and consumer group as environment variables. Replace these values or move them to a ConfigMap for each environment. The `local` profile exclusively creates LocalStack clients with dummy credentials; the `prod` profile relies on the AWS SDK default credential provider chain, so do not configure LocalStack endpoint variables for production.
 
 ## Deploy and monitor
 
@@ -51,4 +52,4 @@ Then call the order endpoint at `http://localhost:8081/api/v1/orders`.
 ## Operational notes
 
 - The configured two replicas provide application-level redundancy, but the local single-broker Kafka setup described in [Kafka](kafka.md) does not provide broker redundancy.
-- `AwsConfig` currently uses endpoint overrides and dummy credentials designed for LocalStack. A deployment that targets real AWS needs application configuration changes rather than only Kubernetes environment variables.
+- The included ServiceAccount has no AWS permissions by itself. Add the cluster-specific IAM role binding before sending production traffic.

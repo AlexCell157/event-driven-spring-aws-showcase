@@ -15,19 +15,29 @@ spec:
             labels:
                 app: ecommerce-backend
         spec:
+            serviceAccountName: ecommerce-backend
             containers:
                 - name: ecommerce-backend-container
-                    # Das Docker-Image deiner Spring Boot App (z. B. auf Docker Hub)
                   image: alexcell157/event-driven-spring-aws-showcase:latest
                   ports:
                       - containerPort: 8081
-                    # Umgebungsvariablen, um die App im Cluster zu steuern
                   env:
                       - name: SPRING_PROFILES_ACTIVE
-                        value: "prod" # In K8s läuft standardmäßig das Produktions-Profil
+                        value: "prod"
                       - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
                         value: "kafka-service:9092"
-                    # Ressourcen-Limits verhindern, dass ein Pod den ganzen Server kille
+                      - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+                        value: "ecommerce-showcase-group"
+                      - name: SPRING_CLOUD_AWS_REGION_STATIC
+                        value: "eu-central-1"
+                      - name: CUSTOM_AWS_S3_BUCKET_NAME
+                        value: "ecommerce-order-archive-showcase"
+                      - name: CUSTOM_AWS_DYNAMODB_ANALYTICS_TABLE
+                        value: "ECommerceAnalyticsDashboard"
+                      - name: CUSTOM_AWS_DYNAMODB_PROCESSED_TABLE
+                        value: "ProcessedOrders"
+                      - name: CUSTOM_KAFKA_TOPIC_NAME
+                        value: "orders-v1"
                   resources:
                       limits:
                           cpu: "500m"
@@ -35,6 +45,12 @@ spec:
                       requests:
                           cpu: "250m"
                           memory: "256Mi"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: ecommerce-backend
 
 ---
 apiVersion: v1
